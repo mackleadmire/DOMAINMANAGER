@@ -11,6 +11,10 @@
  * E.getRurl类中testUrl($a,$b)方法，通过curl探测目标的响应码200等，采集指纹，输出到headcode.txt中
  * F.wvsScanLog类中public方法scansaves($dirname),其他都是private，是对wvs的扫描结果进行批量检测，看看哪些有高危漏洞，快速而且使用简单
  *
+ *  本架构很简单，分三层，第一层函数实现层，也就是ABCDEF，第二层功能实例化层,包含class:
+ *  mainClass -m,manageAC -uac,unisortDir -ua-uc,filterAC -fac-of,TestUrl -gf-ot,onlyCollected -oc,onlySortUnied -os,onlyCSU -ocs,onlyGetdomain -og,iniDir -i
+ *  最后一层是功能执行层，包括class：choseStart,参数基本控制在这个层面上，方便管理修改
+ *
  * 管理过程：
  * 1.初始化创建目录(php urlmanager-commonclass.php -i) initial
  * 目录有alreadychecked（已经检测过的域名或ip）checkwait（等待检测的域名或ip）
@@ -25,7 +29,7 @@
  * 等待进一步检测，比如把这些可以直接复制的域名扔到wvs批量扫描一下，或者手工检测，节约了大量人力
  *
  * 3.-ua,-uc,-uac功能上相同包含ABC三个函数功能，是对chekwait,alreadchecked文件夹中的TXT文本合并并去重排序分离域名和ip，
- * 比如 http://141.160.12.105/，http://141.160.12.105:80/重复了会去除一个
+ * 比如 http://xx.160.12.105/，http://xx.160.12.105:80/重复了会去除一个
  * a代表alreadchecked，c代表chekwait，ac代表同时,
  *
  * 4.-fac,包含D函数，检查checkwait中的域名是否在alreadychecked中也有common的部分，去掉common的部分在ACfilter中生成 真正新发现的域名
@@ -213,7 +217,10 @@ class getdomain extends common
     public function getFinalDomain($filename)
     {
         //  header('Content-type: text/html; charset=utf-8');
-
+         //iisput生成的带:80:443,xx.160.5.27:443,xx.160.12.13:80
+         //nmap -sL ,Nmap scan report for mdywtcmlrly101.moodys.com (xx.160.5.36)
+        //直接带域名的
+        //直接带ip的
 //将temp.txt去重排序，并生成sort-unique.txt,然后将temp.txt删除
         $this->sortUnique($filename);
         $a = "./sr/sort-unique.txt";
@@ -231,97 +238,62 @@ class getdomain extends common
 
             $ipfs = preg_match_all("/[\d]+\.[\d]+\.[\d]+\.[\d]+:443/",$ip,$matchesips);
 
-            $ipfh =  preg_match_all("/([\d]+\.[\d]+\.[\d]+\.[\d])+:80/",$ip,$matchesiph);
+            //因为有没有：80无所谓,也方便之后去重，所以这里在匹配时候加上了 $matchesiph[1][0]匹配的是不带：80的，$matchesiph[0][0]是带：80的
+            $ipfh = preg_match_all("/([\d]+\.[\d]+\.[\d]+\.[\d])+:80/",$ip,$matchesiph);
 
             $ipe = preg_match_all("/[\d]+\.[\d]+\.[\d]+\.[\d]+/",$ip,$matchesipe);
 
             $df = preg_match_all("/[\w-]+\.[\w-]+\.[\w-]+\.com|[\w-]+\.[\w-]+\.com|[\w-]+\.com/",$ip,$matchesd); //匹配成功，返回true
 
+            $dk = preg_match_all("/[\w-]+\.[\w-]+\.[\w-]+\.kr|[\w-]+\.[\w-]+\.kr|[\w-]+\.kr/",$ip,$matchesk);
 
 
-//            if($ipfs ==1 || $ipfh ==1)
-//            {
-//                if($ipfs == 1)
-//                {
-//
-//                    fwrite($handled,"https://" . $matchesips[0][0] . "\r\n");
-//
-//                }
-//                if($ipfh == 1)
-//                {
-//
-//                    fwrite($handled,"http://" . $matchesiph[1][0] . "\r\n");
-//
-//                }
-//            }
-//
-//            else if($ipf == 1 || $ipe == 1)
-//            {
-//                if($ipf == 1)
-//                {
-//
-//                    fwrite($handled,"http://" . $matchesips[0][0] . "\r\n");
-//
-//                }
-//                if($ipe == 1)
-//                {
-//
-//                    fwrite($handled,"http://" . $matchesiph[1][0] . "\r\n");
-//
-//                }
-//            }
-
-//保存域名
-            if ($df == 1)
+            if($ipfs ==1 || $ipfh ==1)
             {
-
-                fwrite($handled,"http://" . $matchesd[0][0] . "\r\n");
-
-            }
-//保存ip
-            if ( $ipf ==1 || $ipfs ==1 || $ipfh ==1|| $ipe==1)
-            {
-//                if ($ipf == 1)
-//                {
-//
-//
-//                    $handleip = fopen("./sr/ip.txt", "a");
-//                    fwrite($handleip, "http://" . $matchesip[0][0] . "\r\n");
-//                    fclose($handleip);
-//
-//                }
                 if($ipfs == 1)
                 {
-
+                    echo "443==1 || 80=1-443:". $matchesips[0][0] . "\r\n";
                     fwrite($handled,"https://" . $matchesips[0][0] . "\r\n");
 
                 }
                 if($ipfh == 1)
                 {
-
+                    echo "443==1 || 80=1-80:". $matchesiph[0][0] . "\r\n";
                     fwrite($handled,"http://" . $matchesiph[1][0] . "\r\n");
 
                 }
-                if($ipe == 1)
-                {
-
-
-                    fwrite($handled,"http://" . $matchesipe[0][0] . "\r\n");
-
-                }
             }
 
-//如果域名和ip同时存在，都保存
-            if ($ipf ==1 && $df ==1)
+          if($ipf == 1)
             {
-                if(is_dir("sr"))
+                if($ipf == 1)
                 {
-                    $handlea = fopen("./sr/all.txt", "a");
-                    fwrite($handlea, "http://" . $matchesd[0][0] . "-------" . $matchesip[0][0] . "\r\n");
-                    fclose($handlea);
-                }
+                    echo "only ip:". $matchesip[0][0] . "\r\n";
+                    fwrite($handled,"http://" . $matchesip[0][0] . "\r\n");
 
+                }
             }
+            if($df == 1 && $ipe == 1)
+            {
+                echo "df=1 ipe=1:". $matchesd[0][0] . "\r\n";
+                fwrite($handled,"http://" . $matchesd[0][0] . "\r\n");
+            }
+           if($df == 0 && $ipe == 1)
+            {
+               echo "df=0 ipe=1:". $matchesipe[0][0] . "\r\n";
+                fwrite($handled,"http://" . $matchesipe[0][0] . "\r\n");
+            }
+            if($dk == 1 && $ipe == 1)
+            {
+                echo "dk=1 ipe=1:". $matchesk[0][0] . "\r\n";
+                fwrite($handled,"http://" . $matchesk[0][0] . "\r\n");
+            }
+            if($dk == 1)
+            {
+                echo "dk=1 ipe=1:". $matchesk[0][0] . "\r\n";
+                fwrite($handled,"http://" . $matchesk[0][0] . "\r\n");
+            }
+
         }
         fclose($hand);
         fclose($handled);
@@ -422,7 +394,10 @@ class getRurl
             curl_setopt($mdhandle,CURLOPT_RETURNTRANSFER,1);//设置为1，浏览器上不显示，但是有返回值$data,否则相反
             curl_setopt($mdhandle, CURLOPT_HEADER, 1);//显示头信息
             curl_setopt($mdhandle,CURLOPT_NOBODY,1);//不显示body
+            curl_setopt($mdhandle, CURLOPT_FOLLOWLOCATION, 1); // 使用自动跳转
+            curl_setopt($mdhandle, CURLOPT_AUTOREFERER, 1); // 自动设置Referer
             curl_setopt($mdhandle, CURLOPT_SSL_VERIFYPEER, false);//不验证https
+            curl_setopt($mdhandle, CURLOPT_SSL_VERIFYHOST, 0); //不验证证书的域名和url是否一样
 
             $data = curl_exec($mdhandle);
 
@@ -528,7 +503,7 @@ class mainClass extends common
 
 
 }
-//-uac 将alreadycheck 和checkwait 中去重排序，分离域名和ip，比如 http://141.160.12.105/，http://141.160.12.105:80/重复了会去除一个
+//-uac 将alreadycheck 和checkwait 中去重排序，分离域名和ip，比如 http://xx.160.12.105/，http://xx.160.12.105:80/重复了会去除一个
 
 class manageAC extends common
 {
@@ -1192,7 +1167,7 @@ class wvsScanLog
     private function catchIp($html)
     {
 
-        $start = strpos($html, "Scan of http") + 7;  //以Scan of http://为起点，+7，指针跑到h，因为起始位置为0
+        $start = strpos($html, "Scan of http") + 8;  //以Scan of http://为起点，+7，指针跑到h，因为起始位置为0
         $end = strpos($html, "</td><td/>", $start);     //再以td为终点，$start作为连接判断（判断td的开始是哪个，定位作用）
         $ip = substr($html, $start, $end - $start);  //字符串截取，哪开始，长度是多少。
         return $ip;
@@ -1213,18 +1188,16 @@ class wvsScanLog
     private function scanSr($high,$aborted,$ip)
     {
         if ($high == 0 && $aborted == 1) {
-            if(is_file("../../checkwait/newIp.txt"))
-            {
-                $handle = fopen("../../checkwait/newIp.txt", "a");
-                fwrite($handle, $ip."\r\n");
-                fclose($handle);
-            }
             $re = $ip . "----------without HIGHRISK,meantime absorb----------" . "\r\n";
             echo $re;
             //把扫描的全部结果保存
             $handle2 = fopen("../sr/scanresult.txt", "a");
             fwrite($handle2, $re);
             fclose($handle2);
+
+            $handle3 = fopen("../sr/absort.txt", "a");
+            fwrite($handle3, $ip."\r\n");
+            fclose($handle3);
 
         } else if ($high != 0 && $aborted == 1) {
             // $handle = fopen("../sr/abortresult.txt", "a");
@@ -1241,6 +1214,10 @@ class wvsScanLog
             $handle2 = fopen("../sr/scanresult.txt", "a");
             fwrite($handle2, $re);
             fclose($handle2);
+
+            $handle3 = fopen("../sr/absort.txt", "a");
+            fwrite($handle3, $ip."\r\n");
+            fclose($handle3);
             //如果有risk，把scan-results.wvs保存到sr目录
             $this-> copyLog($ip);
         } else if ($high == 0 && $aborted == 0) {
